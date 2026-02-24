@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>CPR Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --border: #475569;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --blue: #3b82f6;
+      --blue-d: #2563eb;
+      --green: #22c55e;
+      --green-d: #16a34a;
+      --red: #ef4444;
+      --red-d: #dc2626;
+      --amber: #f59e0b;
+      --amber-d: #d97706;
+      --purple: #a855f7;
+      --teal: #14b8a6;
+      --r: 12px;
+      --rs: 8px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 500px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* ── Header ── */
+    .hdr {
+      background: var(--surface);
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .hdr-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .hdr-brand { font-size: 15px; font-weight: 800; color: var(--red); letter-spacing: -0.3px; }
+    .hdr-start { font-size: 10px; color: var(--muted); }
+    .elapsed-wrap { text-align: center; flex: 1; }
+    .elapsed-num {
+      font-size: 34px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 2px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Courier New', monospace;
+      line-height: 1;
+    }
+    .elapsed-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .reset-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--rs);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .reset-btn:active { background: var(--border); }
+
+    /* ── Warning banners ── */
+    .warnings { flex-shrink: 0; }
+    .warn-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .warn-banner.active { display: flex; }
+    .warn-banner.comp-warn { background: var(--amber); color: #1c1917; }
+    .warn-banner.epi-warn  { background: var(--red);   color: #fff; }
+    .warn-banner.flash { animation: blink .7s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .warn-icon { font-size: 18px; flex-shrink: 0; }
+    .warn-body { flex: 1; }
+    .warn-title { font-size: 12px; font-weight: 800; letter-spacing: .4px; }
+    .warn-sub   { font-size: 10px; font-weight: 500; opacity: .85; }
+    .warn-act {
+      background: rgba(0,0,0,.22);
+      border: none;
+      color: inherit;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 9px 2px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab.on { color: var(--blue); border-bottom-color: var(--blue); }
+
+    /* ── Scrollable panel ── */
+    .panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px 70px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .panel.on { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--r);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+
+    /* ── Timer pair ── */
+    .timer-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .tcell {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px 8px 10px;
+      text-align: center;
+      transition: border-color .3s;
+    }
+    .tcell.warn { border-color: var(--amber); animation: blink .7s ease-in-out infinite; }
+    .tcell.danger { border-color: var(--red); animation: blink .55s ease-in-out infinite; }
+    .tcell-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 3px; }
+    .tcell-num {
+      font-size: 28px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono','Cascadia Code','Courier New',monospace;
+      margin-bottom: 7px;
+    }
+    .tcell-num.safe { color: var(--green); }
+    .tcell-num.warn { color: var(--amber); }
+    .tcell-num.danger { color: var(--red); }
+    .tcell-num.off { color: var(--muted); }
+    .tcell-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+    .tcell-btn:active { background: var(--border); }
+
+    /* ── Button grids ── */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+
+    .abtn {
+      border: none;
+      border-radius: var(--rs);
+      padding: 12px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      text-align: center;
+      line-height: 1.2;
+      transition: opacity .15s, transform .1s;
+    }
+    .abtn:active { opacity: .75; transform: scale(.97); }
+    .abtn .ico { font-size: 20px; }
+    .abtn .lbl { font-size: 11px; }
+
+    .b-blue   { background: var(--blue);   color: #fff; }
+    .b-green  { background: var(--green);  color: #fff; }
+    .b-red    { background: var(--red);    color: #fff; }
+    .b-amber  { background: var(--amber);  color: #1c1917; }
+    .b-purple { background: var(--purple); color: #fff; }
+    .b-teal   { background: var(--teal);   color: #fff; }
+    .b-ghost  { background: var(--surface2); color: var(--text); }
+    .b-ghost.on { background: var(--red); color: #fff; }
+
+    /* ── CPR status strip ── */
+    .cpr-strip {
+      margin-top: 7px;
+      padding: 7px 10px;
+      border-radius: var(--rs);
+      background: var(--surface2);
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .cpr-strip.active { background: rgba(34,197,94,.15); color: var(--green); font-weight: 600; }
+
+    /* ── Info rows ── */
+    .irow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .irow:last-child { border-bottom: none; }
+    .irow-lbl { font-size: 12px; color: var(--muted); }
+    .irow-val { font-size: 12px; font-weight: 600; }
+
+    /* ── Form elements ── */
+    input, select, textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 8px 10px;
+      font-size: 14px;
+      width: 100%;
+      outline: none;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); }
+    textarea { resize: vertical; min-height: 56px; }
+    select option { background: var(--surface); }
+    .flbl {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .fgrp { margin-bottom: 9px; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* ── Rhythm picker ── */
+    .rg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .rbtn {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 8px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+    .rbtn.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .rbtn:active { opacity: .8; }
+
+    /* ── Pulse buttons ── */
+    .pbtn {
+      flex: 1;
+      border: 2px solid var(--border);
+      background: none;
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+    .pbtn.p-yes { border-color: var(--green); color: var(--green); }
+    .pbtn.p-no  { border-color: var(--red);   color: var(--red); }
+    .pbtn.p-yes.on { background: var(--green); color: #fff; }
+    .pbtn.p-no.on  { background: var(--red);   color: #fff; }
+
+    /* ── Outcome buttons ── */
+    .out-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .obtn {
+      border: 2px solid;
+      border-radius: var(--r);
+      padding: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      background: transparent;
+      transition: all .15s;
+    }
+    .obtn.rosc      { border-color: var(--green); color: var(--green); }
+    .obtn.terminate { border-color: var(--red);   color: var(--red); }
+    .obtn.rosc:active, .obtn.rosc.on      { background: var(--green); color: #fff; }
+    .obtn.terminate:active, .obtn.terminate.on { background: var(--red); color: #fff; }
+
+    /* ── Log ── */
+    .log-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 13px; }
+    .lentry { display: flex; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .lentry:last-child { border-bottom: none; }
+    .ltime { font-size: 10px; color: var(--muted); min-width: 48px; padding-top: 2px; font-family: monospace; }
+    .ldot { width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+    .ldot.blue   { background: var(--blue); }
+    .ldot.green  { background: var(--green); }
+    .ldot.red    { background: var(--red); }
+    .ldot.amber  { background: var(--amber); }
+    .ldot.purple { background: var(--purple); }
+    .ldot.teal   { background: var(--teal); }
+    .ldot.muted  { background: var(--muted); }
+    .lbody { flex: 1; }
+    .lmain { font-size: 13px; font-weight: 600; }
+    .lsub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    /* ── Submit button ── */
+    .sbtn {
+      background: var(--blue);
+      border: none;
+      color: #fff;
+      border-radius: var(--rs);
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      transition: background .15s;
+    }
+    .sbtn:active { background: var(--blue-d); }
+
+    /* ── Bottom bar ── */
+    .bbar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 12px;
+      flex-shrink: 0;
+    }
+    .print-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    /* ── Modal / bottom sheet ── */
+    .sheet-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 100;
+      align-items: flex-end;
+    }
+    .sheet-bg.open { display: flex; }
+    .sheet {
+      background: var(--surface);
+      border-radius: var(--r) var(--r) 0 0;
+      padding: 18px 14px 36px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+    .sheet-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .sheet-title { font-size: 16px; font-weight: 700; }
+    .sheet-close {
+      background: var(--surface2);
+      border: none;
+      color: var(--muted);
+      border-radius: 50%;
+      width: 28px; height: 28px;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Splash / overlay ── */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+    }
+    .splash-ico { font-size: 60px; margin-bottom: 14px; }
+    .splash-title { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+    .splash-sub { font-size: 14px; color: var(--muted); margin-bottom: 32px; line-height: 1.6; max-width: 320px; }
+    .splash-go {
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: var(--r);
+      padding: 16px 36px;
+      font-size: 19px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .3px;
+      animation: pulse-glow 1.6s ease-in-out infinite;
+      margin-bottom: 14px;
+    }
+    @keyframes pulse-glow {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45); }
+      50%      { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+    }
+    .splash-alt {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ── Confirm dialog ── */
+    .confirm-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.8);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .confirm-bg.open { display: flex; }
+    .confirm-box {
+      background: var(--surface);
+      border-radius: var(--r);
+      padding: 22px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .confirm-msg   { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .confirm-row   { display: flex; gap: 10px; }
+    .c-cancel {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--rs);
+      padding: 10px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    .c-ok {
+      flex: 1;
+      background: var(--red);
+      border: none;
+      color: #fff;
+      border-radius: var(--rs);
+      padding: 10px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(70px);
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 400;
+      transition: transform .28s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block;
+      background: var(--surface2);
+      border-radius: 20px;
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.blue { background: rgba(59,130,246,.18); color: var(--blue); }
+
+    /* ── Wide action button ── */
+    .wide-abtn {
+      border: none;
+      border-radius: var(--rs);
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      transition: opacity .15s, transform .1s;
+    }
+    .wide-abtn:active { opacity: .75; transform: scale(.98); }
+
+    /* print */
+    @media print {
+      #splash, .warnings, .tabs, .bbar { display: none !important; }
+      #panel-log { display: block !important; padding: 0; }
+      .panel { display: block !important; overflow: visible; }
+      body { background: #fff; color: #000; overflow: auto; }
+      .lsub, .ltime { color: #555; }
+      .lentry { border-color: #ddd; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════ SPLASH ════════════════ -->
+<div id="splash">
+  <div class="splash-ico">🫀</div>
+  <h1 class="splash-title">CPR Tracker</h1>
+  <p class="splash-sub">Tap <strong>START CODE BLUE</strong> when a code is called to begin the resuscitation timer and event log.</p>
+  <button class="splash-go" id="splash-start">START CODE BLUE</button>
+  <button class="splash-alt" id="splash-custom-time">Set custom start time</button>
+</div>
+
+<!-- ════════════════ CONFIRM RESET ════════════════ -->
+<div class="confirm-bg" id="confirm-reset">
+  <div class="confirm-box">
+    <div class="confirm-title">Reset / New Code?</div>
+    <div class="confirm-msg">All data for this resuscitation will be cleared.</div>
+    <div class="confirm-row">
+      <button class="c-cancel" id="reset-cancel">Cancel</button>
+      <button class="c-ok"     id="reset-ok">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ MAIN APP ════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-row">
+      <div>
+        <div class="hdr-brand">CODE BLUE</div>
+        <div class="hdr-start" id="code-start-lbl">--:-- called</div>
+      </div>
+      <div class="elapsed-wrap">
+        <div class="elapsed-num" id="elapsed">00:00</div>
+        <div class="elapsed-lbl">Elapsed</div>
+      </div>
+      <button class="reset-btn" id="reset-btn">New Code</button>
+    </div>
+  </header>
+
+  <!-- Warning banners -->
+  <div class="warnings">
+    <div class="warn-banner comp-warn flash" id="comp-warn">
+      <span class="warn-icon">⚠️</span>
+      <div class="warn-body">
+        <div class="warn-title">SWITCH COMPRESSOR NOW</div>
+        <div class="warn-sub" id="comp-warn-sub">2:00 elapsed</div>
+      </div>
+      <button class="warn-act" id="comp-warn-btn">Switched ✓</button>
+    </div>
+    <div class="warn-banner epi-warn flash" id="epi-warn">
+      <span class="warn-icon">💊</span>
+      <div class="warn-body">
+        <div class="warn-title">EPINEPHRINE DUE</div>
+        <div class="warn-sub" id="epi-warn-sub">4:00 since last dose</div>
+      </div>
+      <button class="warn-act" id="epi-warn-btn">Given ✓</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" data-tab="panel-main">Main</button>
+    <button class="tab"    data-tab="panel-meds">Meds</button>
+    <button class="tab"    data-tab="panel-proc">Procedures</button>
+    <button class="tab"    data-tab="panel-log">Log</button>
+  </div>
+
+  <!-- ── MAIN PANEL ── -->
+  <div class="panel on" id="panel-main">
+
+    <!-- Timers -->
+    <div class="timer-pair">
+      <div class="tcell" id="comp-cell">
+        <div class="tcell-lbl">Compression Timer</div>
+        <div class="tcell-num safe" id="comp-disp">0:00</div>
+        <button class="tcell-btn" id="switch-btn">Switch ↺</button>
+      </div>
+      <div class="tcell" id="epi-cell">
+        <div class="tcell-lbl">Epi Timer</div>
+        <div class="tcell-num off" id="epi-disp">--:--</div>
+        <button class="tcell-btn" id="epi-quick-btn">Epi Given 💊</button>
+      </div>
+    </div>
+
+    <!-- CPR -->
+    <div class="card">
+      <div class="card-title">CPR</div>
+      <div class="g2">
+        <button class="abtn b-green" id="cpr-start-btn">
+          <span class="ico">▶</span><span class="lbl">Start CPR</span>
+        </button>
+        <button class="abtn b-ghost" id="cpr-stop-btn">
+          <span class="ico">⏹</span><span class="lbl">Stop CPR</span>
+        </button>
+      </div>
+      <div class="cpr-strip" id="cpr-strip">CPR not yet started</div>
+    </div>
+
+    <!-- Pulse Check -->
+    <div class="card">
+      <div class="card-title">Pulse Check</div>
+      <button class="wide-abtn b-blue" id="pulse-btn">
+        <span style="font-size:22px">🖐</span>
+        <span>Pulse Check</span>
+      </button>
+    </div>
+
+    <!-- Code Info -->
+    <div class="card">
+      <div class="card-title">Code Info</div>
+      <div class="irow">
+        <span class="irow-lbl">Code Called</span>
+        <span class="irow-val" id="code-time-val">--</span>
+      </div>
+      <div class="irow">
+        <span class="irow-lbl">Initial Rhythm</span>
+        <span class="irow-val" id="init-rhythm-val">
+          <button class="tcell-btn" id="set-rhythm-btn" style="padding:4px 12px;font-size:11px;">Set Rhythm</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- Outcome -->
+    <div class="card">
+      <div class="card-title">Outcome</div>
+      <div class="out-grid">
+        <button class="obtn rosc"      id="rosc-btn">ROSC</button>
+        <button class="obtn terminate" id="term-btn">Terminate</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-main -->
+
+  <!-- ── MEDICATIONS PANEL ── -->
+  <div class="panel" id="panel-meds">
+
+    <div class="card">
+      <div class="card-title">Quick Log</div>
+      <div class="g2" style="margin-bottom:7px">
+        <button class="abtn b-red" id="q-epi-btn">
+          <span class="ico">💉</span><span class="lbl">Epinephrine 1mg IV</span>
+        </button>
+        <button class="abtn b-amber" id="q-amio-btn">
+          <span class="ico">💊</span><span class="lbl">Amiodarone 300mg IV</span>
+        </button>
+      </div>
+      <div class="g2">
+        <button class="abtn b-ghost" id="q-bicarb-btn">
+          <span class="ico">🧪</span><span class="lbl">Bicarb 50mEq IV</span>
+        </button>
+        <button class="abtn b-ghost" id="q-lido-btn">
+          <span class="ico">💊</span><span class="lbl">Lidocaine 100mg IV</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Log Any Medication</div>
+      <div class="fgrp">
+        <label class="flbl">Drug</label>
+        <select id="med-drug">
+          <option value="">-- Select --</option>
+          <option>Epinephrine</option>
+          <option>Amiodarone</option>
+          <option>Lidocaine</option>
+          <option>Atropine</option>
+          <option>Sodium Bicarbonate</option>
+          <option>Calcium Chloride</option>
+          <option>Calcium Gluconate</option>
+          <option>Dextrose 50%</option>
+          <option>Naloxone</option>
+          <option>Magnesium Sulfate</option>
+          <option>Vasopressin</option>
+          <option>tPA / Alteplase</option>
+          <option value="__other__">Other (type below)</option>
+        </select>
+      </div>
+      <div class="fgrp" id="med-other-grp" style="display:none">
+        <label class="flbl">Drug Name</label>
+        <input type="text" id="med-other-name" placeholder="Enter drug name">
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Dose</label>
+          <input type="text" id="med-dose" placeholder="e.g. 1mg">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Route</label>
+          <select id="med-route">
+            <option>IV</option><option>IO</option><option>IM</option>
+            <option>ET</option><option>PO</option><option>SQ</option>
+          </select>
+        </div>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Time</label>
+        <input type="time" id="med-time">
+      </div>
+      <button class="sbtn" id="log-med-btn">Log Medication</button>
+    </div>
+
+  </div><!-- /panel-meds -->
+
+  <!-- ── PROCEDURES PANEL ── -->
+  <div class="panel" id="panel-proc">
+
+    <!-- Defibrillation -->
+    <div class="card">
+      <div class="card-title">Defibrillation</div>
+      <button class="wide-abtn b-amber" id="defib-btn" style="font-size:16px; font-weight:700;">
+        <span style="font-size:22px">⚡</span> Defibrillation / Shock
+      </button>
+    </div>
+
+    <!-- Airway -->
+    <div class="card">
+      <div class="card-title">Airway Management</div>
+      <div class="g2">
+        <button class="abtn b-teal" id="a-bvm"><span class="ico">🫁</span><span class="lbl">BVM Started</span></button>
+        <button class="abtn b-teal" id="a-ett"><span class="ico">🔧</span><span class="lbl">Intubated (ETT)</span></button>
+        <button class="abtn b-ghost" id="a-lma"><span class="ico">🫁</span><span class="lbl">LMA / SGA</span></button>
+        <button class="abtn b-ghost" id="a-surg"><span class="ico">✂️</span><span class="lbl">Surgical Airway</span></button>
+      </div>
+    </div>
+
+    <!-- Vascular Access -->
+    <div class="card">
+      <div class="card-title">Vascular Access</div>
+      <div class="g3">
+        <button class="abtn b-ghost" id="va-iv"><span class="ico">💉</span><span class="lbl">IV Access</span></button>
+        <button class="abtn b-ghost" id="va-io"><span class="ico">🦴</span><span class="lbl">IO Access</span></button>
+        <button class="abtn b-ghost" id="va-cvl"><span class="ico">💉</span><span class="lbl">Central Line</span></button>
+      </div>
+    </div>
+
+    <!-- Other procedures -->
+    <div class="card">
+      <div class="card-title">Other Procedures</div>
+      <div class="g2">
+        <button class="abtn b-purple" id="p-needle"><span class="ico">🩺</span><span class="lbl">Needle Decompression</span></button>
+        <button class="abtn b-ghost"  id="p-pace">  <span class="ico">⚡</span><span class="lbl">External Pacing</span></button>
+        <button class="abtn b-ghost"  id="p-peri">  <span class="ico">🫀</span><span class="lbl">Pericardiocentesis</span></button>
+        <button class="abtn b-ghost"  id="p-tpa">   <span class="ico">💊</span><span class="lbl">Thrombolysis</span></button>
+      </div>
+    </div>
+
+    <!-- Custom note -->
+    <div class="card">
+      <div class="card-title">Custom Note / Intervention</div>
+      <textarea id="custom-note" placeholder="Describe any other intervention or event..."></textarea>
+      <button class="sbtn" id="log-note-btn">Add to Log</button>
+    </div>
+
+  </div><!-- /panel-proc -->
+
+  <!-- ── LOG PANEL ── -->
+  <div class="panel" id="panel-log">
+    <div class="log-empty" id="log-empty">No events yet.<br>Start the code to begin logging.</div>
+    <div id="log-list"></div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bbar">
+    <button class="print-btn" id="print-btn">🖨 Print / Save Summary</button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ════ BOTTOM SHEETS ════ -->
+
+<!-- Custom start time -->
+<div class="sheet-bg" id="sheet-starttime">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">Set Code Start Time</span>
+      <button class="sheet-close" data-close="sheet-starttime">✕</button>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Code Blue Called At</label>
+      <input type="time" id="custom-start-time">
+    </div>
+    <button class="sbtn" id="confirm-start-btn">Start Tracking</button>
+  </div>
+</div>
+
+<!-- Pulse Check -->
+<div class="sheet-bg" id="sheet-pulse">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">Pulse Check</span>
+      <button class="sheet-close" data-close="sheet-pulse">✕</button>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Pulse Present?</label>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button class="pbtn p-yes" data-pulse="present">Pulse Present ✓</button>
+        <button class="pbtn p-no"  data-pulse="absent">No Pulse ✗</button>
+      </div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Rhythm at Pulse Check</label>
+      <div class="rg" id="pulse-rhythms">
+        <button class="rbtn" data-r="VF">VF</button>
+        <button class="rbtn" data-r="pVT">pVT</button>
+        <button class="rbtn" data-r="PEA">PEA</button>
+        <button class="rbtn" data-r="Asystole">Asystole</button>
+        <button class="rbtn" data-r="NSR / Sinus">NSR / Sinus</button>
+        <button class="rbtn" data-r="Other">Other</button>
+      </div>
+    </div>
+    <div class="fgrp" id="pulse-other-grp" style="display:none">
+      <label class="flbl">Specify Rhythm</label>
+      <input type="text" id="pulse-other-inp" placeholder="e.g. junctional, AF...">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Notes (optional)</label>
+      <input type="text" id="pulse-notes" placeholder="e.g. weak femoral pulse">
+    </div>
+    <button class="sbtn" id="log-pulse-btn">Log Pulse Check</button>
+  </div>
+</div>
+
+<!-- Initial Rhythm -->
+<div class="sheet-bg" id="sheet-rhythm">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">Initial Patient Rhythm</span>
+      <button class="sheet-close" data-close="sheet-rhythm">✕</button>
+    </div>
+    <div class="rg" id="init-rhythms">
+      <button class="rbtn" data-ir="VF">VF</button>
+      <button class="rbtn" data-ir="pVT">pVT</button>
+      <button class="rbtn" data-ir="PEA">PEA</button>
+      <button class="rbtn" data-ir="Asystole">Asystole</button>
+      <button class="rbtn" data-ir="NSR / Sinus">NSR / Sinus</button>
+      <button class="rbtn" data-ir="A-Flutter">A-Flutter</button>
+      <button class="rbtn" data-ir="A-Fib">A-Fib</button>
+      <button class="rbtn" data-ir="Other">Other</button>
+    </div>
+    <div class="fgrp" id="ir-other-grp" style="display:none; margin-top:8px;">
+      <label class="flbl">Specify</label>
+      <input type="text" id="ir-other-inp" placeholder="e.g. SVT, VT, idioventricular...">
+    </div>
+    <button class="sbtn" id="confirm-rhythm-btn">Confirm Rhythm</button>
+  </div>
+</div>
+
+<!-- Defibrillation -->
+<div class="sheet-bg" id="sheet-defib">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">Defibrillation</span>
+      <button class="sheet-close" data-close="sheet-defib">✕</button>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Energy (Joules)</label>
+      <div class="g3" style="margin-bottom:8px;">
+        <button class="rbtn" data-j="120">120 J</button>
+        <button class="rbtn" data-j="150">150 J</button>
+        <button class="rbtn" data-j="200">200 J</button>
+        <button class="rbtn" data-j="300">300 J</button>
+        <button class="rbtn" data-j="360">360 J</button>
+        <button class="rbtn" data-j="__custom__">Custom</button>
+      </div>
+      <input type="number" id="defib-custom-j" placeholder="Enter joules..." style="display:none;">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Notes (optional)</label>
+      <input type="text" id="defib-notes" placeholder="e.g. biphasic, monophasic">
+    </div>
+    <button class="sbtn" id="log-defib-btn">Log Shock ⚡</button>
+  </div>
+</div>
+
+<!-- Needle Decompression -->
+<div class="sheet-bg" id="sheet-needle">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">Needle Decompression</span>
+      <button class="sheet-close" data-close="sheet-needle">✕</button>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Side</label>
+      <div class="rg" style="grid-template-columns:1fr 1fr 1fr;" id="needle-sides">
+        <button class="rbtn" data-side="Left">Left</button>
+        <button class="rbtn" data-side="Right">Right</button>
+        <button class="rbtn" data-side="Bilateral">Bilateral</button>
+      </div>
+    </div>
+    <div class="fgrp" style="margin-top:8px;">
+      <label class="flbl">Notes</label>
+      <input type="text" id="needle-notes" placeholder="e.g. 2nd ICS MCL, 14g angio">
+    </div>
+    <button class="sbtn" id="log-needle-btn">Log Procedure</button>
+  </div>
+</div>
+
+<!-- External Pacing -->
+<div class="sheet-bg" id="sheet-pacing">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title">External Pacing</span>
+      <button class="sheet-close" data-close="sheet-pacing">✕</button>
+    </div>
+    <div class="frow">
+      <div class="fgrp">
+        <label class="flbl">Rate (bpm)</label>
+        <input type="number" id="pace-rate" placeholder="e.g. 80">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Output (mA)</label>
+        <input type="number" id="pace-ma" placeholder="e.g. 60">
+      </div>
+    </div>
+    <button class="sbtn" id="log-pacing-btn">Log Pacing Started</button>
+  </div>
+</div>
+
+<!-- Outcome -->
+<div class="sheet-bg" id="sheet-outcome">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <span class="sheet-title" id="outcome-title">ROSC</span>
+      <button class="sheet-close" data-close="sheet-outcome">✕</button>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Time</label>
+      <input type="time" id="outcome-time">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Notes (optional)</label>
+      <input type="text" id="outcome-notes" placeholder="e.g. HR 72, BP 100/60">
+    </div>
+    <button class="sbtn" id="log-outcome-btn">Confirm &amp; Log</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ════════════════ JAVASCRIPT ════════════════ -->
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────
+const S = {
+  running: false,
+  startTime: null,
+  cprOn: false,
+  cprStart: null,
+  compSwitch: null,      // last compressor switch time
+  compWarnAck: false,
+  epiLast: null,         // last epi time
+  epiWarnAck: false,
+  initRhythm: null,
+  selInitRhythm: null,
+  pulseResult: null,
+  pulseRhythm: null,
+  defibJ: null,
+  needleSide: null,
+  outcomeType: null,
+  shocks: 0,
+  events: [],
+};
+
+// ── Utility ────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const now = () => new Date();
+
+function fmt(d) {
+  if (!d) d = now();
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function hhmm(d) {
+  if (!d) d = now();
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+function elapsed(d) {
+  if (!S.startTime || !d) return '';
+  const s = Math.floor((d - S.startTime) / 1000);
+  return '+' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+function setTimeInput(id) {
+  $(id).value = hhmm(now());
+}
+function toast(msg, ms=2000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+function logEv(text, sub, color='blue') {
+  S.events.push({ text, sub, color, time: now() });
+  renderLog();
+}
+function renderLog() {
+  const list = $('log-list');
+  const empty = $('log-empty');
+  if (!S.events.length) { empty.style.display='block'; list.innerHTML=''; return; }
+  empty.style.display = 'none';
+  list.innerHTML = S.events.slice().reverse().map(e => `
+    <div class="lentry">
+      <div class="ltime">${fmt(e.time)}<br>${elapsed(e.time)}</div>
+      <div class="ldot ${e.color}"></div>
+      <div class="lbody">
+        <div class="lmain">${e.text}</div>
+        ${e.sub ? `<div class="lsub">${e.sub}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+function openSheet(id) { $(id).classList.add('open'); }
+function closeSheet(id) { $(id).classList.remove('open'); }
+
+// ── Timer loop ─────────────────────────────────────────
+let ticker = null;
+
+function startTicker() {
+  clearInterval(ticker);
+  ticker = setInterval(tick, 1000);
+}
+
+function tick() {
+  if (!S.running) return;
+  const n = now();
+
+  // Elapsed
+  const tot = Math.floor((n - S.startTime) / 1000);
+  $('elapsed').textContent = String(Math.floor(tot/60)).padStart(2,'0') + ':' + String(tot%60).padStart(2,'0');
+
+  // Compression timer
+  if (S.compSwitch) {
+    const cs = Math.floor((n - S.compSwitch) / 1000);
+    const cm = Math.floor(cs/60), cx = cs%60;
+    const dd = $('comp-disp');
+    dd.textContent = cm + ':' + String(cx).padStart(2,'0');
+    const cell = $('comp-cell');
+    const wb   = $('comp-warn');
+    if (cs >= 120) {
+      dd.className = 'tcell-num danger';
+      cell.className = 'tcell danger';
+      if (!S.compWarnAck) {
+        wb.classList.add('active');
+        $('comp-warn-sub').textContent = cm+':'+String(cx).padStart(2,'0')+' elapsed — SWITCH NOW';
+      }
+    } else if (cs >= 100) {
+      dd.className = 'tcell-num warn';
+      cell.className = 'tcell warn';
+      wb.classList.remove('active');
+    } else {
+      dd.className = 'tcell-num safe';
+      cell.className = 'tcell';
+      wb.classList.remove('active');
+    }
+  }
+
+  // Epi timer
+  if (S.epiLast) {
+    const es = Math.floor((n - S.epiLast) / 1000);
+    const em = Math.floor(es/60), ex = es%60;
+    const dd = $('epi-disp');
+    dd.textContent = em + ':' + String(ex).padStart(2,'0');
+    const cell = $('epi-cell');
+    const wb   = $('epi-warn');
+    if (es >= 240) {
+      dd.className = 'tcell-num danger';
+      cell.className = 'tcell danger';
+      if (!S.epiWarnAck) {
+        wb.classList.add('active');
+        $('epi-warn-sub').textContent = em+':'+String(ex).padStart(2,'0')+' since last dose';
+      }
+    } else if (es >= 210) {
+      dd.className = 'tcell-num warn';
+      cell.className = 'tcell warn';
+      wb.classList.remove('active');
+    } else {
+      dd.className = 'tcell-num safe';
+      cell.className = 'tcell';
+      wb.classList.remove('active');
+    }
+  }
+}
+
+// ── Start code ─────────────────────────────────────────
+function startCode(customTime) {
+  const d = new Date();
+  if (customTime) {
+    const [h,m] = customTime.split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+    if (d > now()) d.setDate(d.getDate() - 1);
+  }
+  S.running = true;
+  S.startTime = d;
+  S.compSwitch = d;
+  $('code-start-lbl').textContent = fmt(d) + ' called';
+  $('code-time-val').textContent  = fmt(d);
+  $('splash').style.display = 'none';
+  logEv('Code Blue Called', 'Resuscitation initiated', 'red');
+  startTicker();
+  tick();
+}
+
+// ── Reset ──────────────────────────────────────────────
+function resetAll() {
+  clearInterval(ticker);
+  Object.assign(S, {
+    running:false, startTime:null, cprOn:false, cprStart:null,
+    compSwitch:null, compWarnAck:false, epiLast:null, epiWarnAck:false,
+    initRhythm:null, selInitRhythm:null, pulseResult:null, pulseRhythm:null,
+    defibJ:null, needleSide:null, outcomeType:null, shocks:0, events:[],
+  });
+  $('elapsed').textContent = '00:00';
+  $('comp-disp').textContent = '0:00';  $('comp-disp').className = 'tcell-num safe';
+  $('epi-disp').textContent  = '--:--'; $('epi-disp').className  = 'tcell-num off';
+  $('comp-cell').className = 'tcell'; $('epi-cell').className = 'tcell';
+  $('comp-warn').classList.remove('active');
+  $('epi-warn').classList.remove('active');
+  $('code-start-lbl').textContent = '--:-- called';
+  $('code-time-val').textContent  = '--';
+  $('cpr-strip').textContent = 'CPR not yet started';
+  $('cpr-strip').className = 'cpr-strip';
+  $('init-rhythm-val').innerHTML = '<button class="tcell-btn" id="set-rhythm-btn" style="padding:4px 12px;font-size:11px;">Set Rhythm</button>';
+  $('set-rhythm-btn').addEventListener('click', () => openSheet('sheet-rhythm'));
+  renderLog();
+  $('splash').style.display = 'flex';
+}
+
+// ── Compression switch ─────────────────────────────────
+function doSwitch() {
+  S.compSwitch  = now();
+  S.compWarnAck = false;
+  $('comp-warn').classList.remove('active');
+  $('comp-cell').className = 'tcell';
+  $('comp-disp').className = 'tcell-num safe';
+  $('comp-disp').textContent = '0:00';
+  logEv('Compressor Switched', fmt(), 'blue');
+  toast('Compression timer reset');
+}
+
+// ── Epi given ──────────────────────────────────────────
+function doEpiGiven(label) {
+  S.epiLast    = now();
+  S.epiWarnAck = false;
+  $('epi-warn').classList.remove('active');
+  $('epi-cell').className = 'tcell';
+  $('epi-disp').className = 'tcell-num safe';
+  $('epi-disp').textContent = '0:00';
+  logEv(label || 'Epinephrine 1mg IV', fmt(), 'red');
+  toast('Epi logged — timer reset');
+}
+
+// ── Tabs ───────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    btn.classList.add('on');
+    $(btn.dataset.tab).classList.add('on');
+  });
+});
+
+// ── Close buttons ──────────────────────────────────────
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeSheet(btn.dataset.close));
+});
+document.querySelectorAll('.sheet-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) closeSheet(bg.id); });
+});
+
+// ── Splash ─────────────────────────────────────────────
+$('splash-start').addEventListener('click', () => startCode(null));
+$('splash-custom-time').addEventListener('click', () => {
+  setTimeInput('custom-start-time');
+  openSheet('sheet-starttime');
+});
+$('confirm-start-btn').addEventListener('click', () => {
+  const v = $('custom-start-time').value;
+  closeSheet('sheet-starttime');
+  startCode(v || null);
+});
+
+// ── Reset dialog ───────────────────────────────────────
+$('reset-btn').addEventListener('click', () => $('confirm-reset').classList.add('open'));
+$('reset-cancel').addEventListener('click', () => $('confirm-reset').classList.remove('open'));
+$('reset-ok').addEventListener('click', () => { $('confirm-reset').classList.remove('open'); resetAll(); });
+
+// ── Warning dismissals ─────────────────────────────────
+$('comp-warn-btn').addEventListener('click', doSwitch);
+$('epi-warn-btn').addEventListener('click', () => doEpiGiven());
+
+// ── CPR ────────────────────────────────────────────────
+$('cpr-start-btn').addEventListener('click', () => {
+  if (S.cprOn) return;
+  S.cprOn = true; S.cprStart = now();
+  S.compSwitch  = S.cprStart;
+  S.compWarnAck = false;
+  const s = $('cpr-strip');
+  s.textContent = 'CPR Active — started ' + fmt(S.cprStart);
+  s.className = 'cpr-strip active';
+  logEv('CPR Started', null, 'green');
+  toast('CPR started');
+});
+$('cpr-stop-btn').addEventListener('click', () => {
+  if (!S.cprOn) return;
+  S.cprOn = false;
+  const s = $('cpr-strip');
+  s.textContent = 'CPR stopped at ' + fmt();
+  s.className = 'cpr-strip';
+  logEv('CPR Stopped', null, 'amber');
+  toast('CPR stopped');
+});
+
+// ── Switch compressor ──────────────────────────────────
+$('switch-btn').addEventListener('click', doSwitch);
+
+// ── Epi quick ─────────────────────────────────────────
+$('epi-quick-btn').addEventListener('click', () => doEpiGiven());
+
+// ── Pulse check ────────────────────────────────────────
+$('pulse-btn').addEventListener('click', () => {
+  S.pulseResult = null; S.pulseRhythm = null;
+  document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#pulse-rhythms .rbtn').forEach(b => b.classList.remove('on'));
+  $('pulse-other-grp').style.display = 'none';
+  $('pulse-other-inp').value = '';
+  $('pulse-notes').value = '';
+  openSheet('sheet-pulse');
+});
+document.querySelectorAll('.pbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.pulseResult = btn.dataset.pulse;
+  });
+});
+document.querySelectorAll('#pulse-rhythms .rbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#pulse-rhythms .rbtn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.pulseRhythm = btn.dataset.r;
+    $('pulse-other-grp').style.display = S.pulseRhythm === 'Other' ? 'block' : 'none';
+  });
+});
+$('log-pulse-btn').addEventListener('click', () => {
+  if (!S.pulseResult) { toast('Select pulse present or absent'); return; }
+  const rhythm = S.pulseRhythm === 'Other'
+    ? ($('pulse-other-inp').value || 'Other')
+    : S.pulseRhythm;
+  const notes = $('pulse-notes').value;
+  const ptext = S.pulseResult === 'present' ? 'Pulse Present ✓' : 'No Pulse ✗';
+  let sub = rhythm ? 'Rhythm: ' + rhythm : '';
+  if (notes) sub += (sub ? ' — ' : '') + notes;
+  logEv('Pulse Check: ' + ptext, sub, S.pulseResult === 'present' ? 'green' : 'red');
+  closeSheet('sheet-pulse');
+  toast('Pulse check logged');
+});
+
+// ── Initial rhythm ─────────────────────────────────────
+$('set-rhythm-btn').addEventListener('click', () => {
+  S.selInitRhythm = null;
+  document.querySelectorAll('#init-rhythms .rbtn').forEach(b => b.classList.remove('on'));
+  $('ir-other-grp').style.display = 'none';
+  openSheet('sheet-rhythm');
+});
+document.querySelectorAll('#init-rhythms .rbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#init-rhythms .rbtn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.selInitRhythm = btn.dataset.ir;
+    $('ir-other-grp').style.display = S.selInitRhythm === 'Other' ? 'block' : 'none';
+  });
+});
+$('confirm-rhythm-btn').addEventListener('click', () => {
+  let r = S.selInitRhythm;
+  if (r === 'Other') r = $('ir-other-inp').value || 'Other';
+  if (!r) { toast('Select a rhythm'); return; }
+  S.initRhythm = r;
+  $('init-rhythm-val').innerHTML = `<span class="badge blue">${r}</span>`;
+  $('init-rhythm-val').style.cursor = 'pointer';
+  $('init-rhythm-val').onclick = () => openSheet('sheet-rhythm');
+  logEv('Initial Rhythm: ' + r, null, 'purple');
+  closeSheet('sheet-rhythm');
+  toast('Initial rhythm: ' + r);
+});
+
+// ── Defibrillation ─────────────────────────────────────
+$('defib-btn').addEventListener('click', () => {
+  S.defibJ = null;
+  document.querySelectorAll('[data-j]').forEach(b => b.classList.remove('on'));
+  $('defib-custom-j').style.display = 'none';
+  $('defib-custom-j').value = '';
+  $('defib-notes').value = '';
+  openSheet('sheet-defib');
+});
+document.querySelectorAll('[data-j]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-j]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    if (btn.dataset.j === '__custom__') {
+      $('defib-custom-j').style.display = 'block';
+      S.defibJ = null;
+    } else {
+      $('defib-custom-j').style.display = 'none';
+      S.defibJ = btn.dataset.j;
+    }
+  });
+});
+$('log-defib-btn').addEventListener('click', () => {
+  const j = S.defibJ || $('defib-custom-j').value;
+  const notes = $('defib-notes').value;
+  S.shocks++;
+  const sub = (j ? j+'J' : 'Energy not noted') + (notes ? ' — '+notes : '');
+  logEv('Defibrillation — Shock #' + S.shocks, sub, 'amber');
+  closeSheet('sheet-defib');
+  toast('Shock #' + S.shocks + ' logged');
+});
+
+// ── Airway ─────────────────────────────────────────────
+[
+  ['a-bvm',  'BVM Ventilation Started', 'teal'],
+  ['a-ett',  'Endotracheal Intubation', 'teal'],
+  ['a-lma',  'Supraglottic Airway (LMA/SGA)', 'teal'],
+  ['a-surg', 'Surgical Airway', 'red'],
+].forEach(([id, text, color]) => {
+  $(id).addEventListener('click', () => {
+    logEv(text, fmt(), color);
+    toast(text + ' logged');
+  });
+});
+
+// ── Vascular access ────────────────────────────────────
+[
+  ['va-iv',  'IV Access Obtained', 'blue'],
+  ['va-io',  'Intraosseous (IO) Access', 'blue'],
+  ['va-cvl', 'Central Venous Line Placed', 'blue'],
+].forEach(([id, text, color]) => {
+  $(id).addEventListener('click', () => {
+    logEv(text, fmt(), color);
+    toast(text + ' logged');
+  });
+});
+
+// ── Needle decompression ───────────────────────────────
+$('p-needle').addEventListener('click', () => {
+  S.needleSide = null;
+  document.querySelectorAll('[data-side]').forEach(b => b.classList.remove('on'));
+  $('needle-notes').value = '';
+  openSheet('sheet-needle');
+});
+document.querySelectorAll('[data-side]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-side]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.needleSide = btn.dataset.side;
+  });
+});
+$('log-needle-btn').addEventListener('click', () => {
+  const side  = S.needleSide || 'Side not specified';
+  const notes = $('needle-notes').value;
+  logEv('Needle Decompression — ' + side, notes || fmt(), 'purple');
+  closeSheet('sheet-needle');
+  toast('Needle decompression logged');
+});
+
+// ── External pacing ────────────────────────────────────
+$('p-pace').addEventListener('click', () => {
+  $('pace-rate').value = ''; $('pace-ma').value = '';
+  openSheet('sheet-pacing');
+});
+$('log-pacing-btn').addEventListener('click', () => {
+  const rate = $('pace-rate').value;
+  const ma   = $('pace-ma').value;
+  const sub  = [rate ? rate+' bpm' : '', ma ? ma+' mA' : ''].filter(Boolean).join(', ') || fmt();
+  logEv('External Pacing Started', sub, 'blue');
+  closeSheet('sheet-pacing');
+  toast('External pacing logged');
+});
+
+// ── Pericardiocentesis & Thrombolysis ─────────────────
+$('p-peri').addEventListener('click', () => { logEv('Pericardiocentesis', fmt(), 'purple'); toast('Pericardiocentesis logged'); });
+$('p-tpa').addEventListener('click',  () => { logEv('Thrombolysis Administered', fmt(), 'purple'); toast('Thrombolysis logged'); });
+
+// ── Quick meds ─────────────────────────────────────────
+$('q-epi-btn').addEventListener('click', () => doEpiGiven('Epinephrine 1mg IV'));
+$('q-amio-btn').addEventListener('click', () => { logEv('Amiodarone 300mg IV', fmt(), 'amber'); toast('Amiodarone logged'); });
+$('q-bicarb-btn').addEventListener('click', () => { logEv('Sodium Bicarbonate 50mEq IV', fmt(), 'blue'); toast('Bicarb logged'); });
+$('q-lido-btn').addEventListener('click', () => { logEv('Lidocaine 100mg IV', fmt(), 'blue'); toast('Lidocaine logged'); });
+
+// ── Custom medication form ─────────────────────────────
+$('med-drug').addEventListener('change', e => {
+  $('med-other-grp').style.display = e.target.value === '__other__' ? 'block' : 'none';
+});
+$('log-med-btn').addEventListener('click', () => {
+  let drug = $('med-drug').value;
+  if (!drug) { toast('Select a drug'); return; }
+  if (drug === '__other__') drug = $('med-other-name').value.trim();
+  if (!drug) { toast('Enter drug name'); return; }
+  const dose  = $('med-dose').value.trim();
+  const route = $('med-route').value;
+  const time  = $('med-time').value;
+  const sub   = [dose, route, time].filter(Boolean).join(' · ');
+  const isEpi = /epinephrine/i.test(drug);
+  logEv(drug, sub, isEpi ? 'red' : 'blue');
+  if (isEpi) {
+    S.epiLast = now(); S.epiWarnAck = false;
+    $('epi-warn').classList.remove('active');
+    $('epi-cell').className = 'tcell';
+    $('epi-disp').className = 'tcell-num safe';
+    $('epi-disp').textContent = '0:00';
+  }
+  toast(drug + ' logged');
+  $('med-drug').value = ''; $('med-dose').value = '';
+  $('med-other-grp').style.display = 'none';
+  $('med-other-name').value = '';
+  setTimeInput('med-time');
+});
+
+// ── Custom note ────────────────────────────────────────
+$('log-note-btn').addEventListener('click', () => {
+  const note = $('custom-note').value.trim();
+  if (!note) { toast('Enter a note'); return; }
+  logEv(note, fmt(), 'muted');
+  $('custom-note').value = '';
+  toast('Note added to log');
+});
+
+// ── Outcome ────────────────────────────────────────────
+$('rosc-btn').addEventListener('click', () => {
+  S.outcomeType = 'rosc';
+  $('outcome-title').textContent = 'Return of Spontaneous Circulation (ROSC)';
+  $('outcome-notes').placeholder = 'e.g. HR 80, BP 90/60, initial post-ROSC rhythm...';
+  setTimeInput('outcome-time');
+  openSheet('sheet-outcome');
+});
+$('term-btn').addEventListener('click', () => {
+  S.outcomeType = 'terminate';
+  $('outcome-title').textContent = 'Terminate Resuscitation';
+  $('outcome-notes').placeholder = 'e.g. family present, team agreement at __min...';
+  setTimeInput('outcome-time');
+  openSheet('sheet-outcome');
+});
+$('log-outcome-btn').addEventListener('click', () => {
+  const time  = $('outcome-time').value;
+  const notes = $('outcome-notes').value;
+  const type  = S.outcomeType;
+  const text  = type === 'rosc' ? 'ROSC Achieved' : 'Resuscitation Terminated';
+  const color = type === 'rosc' ? 'green' : 'red';
+  const sub   = (time ? 'at ' + time : '') + (notes ? (time?' — ':'')+notes : '');
+  logEv(text, sub, color);
+  closeSheet('sheet-outcome');
+  toast(text);
+  // Switch to log tab
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelector('[data-tab="panel-log"]').classList.add('on');
+  $('panel-log').classList.add('on');
+});
+
+// ── Print ──────────────────────────────────────────────
+$('print-btn').addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelector('[data-tab="panel-log"]').classList.add('on');
+  $('panel-log').classList.add('on');
+  setTimeout(() => window.print(), 150);
+});
+
+// ── Init ───────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeInput('med-time');
+  setTimeInput('outcome-time');
+});
+
+// Prevent accidental navigation during active code
+window.addEventListener('beforeunload', e => {
+  if (S.running && S.events.length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+</script>
+</body>
+</html>
