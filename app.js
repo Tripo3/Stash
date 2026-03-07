@@ -619,16 +619,34 @@ class StashApp {
   renderTags() {
     const container = document.getElementById('tags-list');
     container.innerHTML = this.tags.map(tag => `
-      <span class="tag" data-id="${tag.id}">${this.escapeHtml(tag.name)}</span>
+      <span class="tag" data-id="${tag.id}">${this.escapeHtml(tag.name)}<button class="tag-delete-btn" title="Delete tag" data-tag-id="${tag.id}" data-tag-name="${this.escapeHtml(tag.name)}">×</button></span>
     `).join('');
-
     container.querySelectorAll('.tag').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tag-delete-btn')) return;
         // TODO: Filter by tag
+      });
+    });
+    container.querySelectorAll('.tag-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tagId = btn.dataset.tagId;
+        const tagName = btn.dataset.tagName;
+        this.deleteTag(tagId, tagName);
       });
     });
   }
 
+  async deleteTag(tagId, tagName) {
+    if (!confirm(`Delete tag "${tagName}"? It will be removed from all saved items.`)) return;
+    await this.supabase.from('save_tags').delete().eq('tag_id', tagId);
+    const { error } = await this.supabase.from('tags').delete().eq('id', tagId);
+    if (error) {
+      alert('Failed to delete tag: ' + error.message);
+      return;
+    }
+    this.loadTags();
+  }
   async loadFolders() {
     const { data } = await this.supabase
       .from('folders')
@@ -699,7 +717,22 @@ class StashApp {
     // Stop any existing audio
     this.stopAudio();
 
-    document.getElementById('reading-title').textContent = save.title || 'Untitled';
+    const titleEl = document.getElementById('reading-title');
+    titleEl.textContent = save.title || 'Untitled';
+    titleEl.setAttribute('contenteditable', 'true');
+    titleEl.style.cursor = 'text';
+    titleEl.style.outline = 'none';
+    titleEl.title = 'Click to edit title';
+    titleEl.onblur = () => {
+      const newTitle = titleEl.textContent.trim() || 'Untitled';
+      if (newTitle !== (this.currentSave.title || 'Untitled')) {
+        this.updateSaveTitle(this.currentSave.id, newTitle);
+      }
+    };
+    titleEl.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+      if (e.key === 'Escape') { titleEl.textContent = save.title || 'Untitled'; titleEl.blur(); }
+    };
     document.getElementById('reading-meta').innerHTML = `
       ${save.site_name || ''} ${save.author ? `· ${save.author}` : ''} · ${new Date(save.created_at).toLocaleDateString()}
     `;
@@ -920,6 +953,21 @@ class StashApp {
 
     this.closeReadingPane();
     this.loadSaves();
+  }
+
+  async updateSaveTitle(saveId, newTitle) {
+    const { error } = await this.supabase
+      .from('saves')
+      .update({ title: newTitle })
+      .eq('id', saveId);
+    if (error) {
+      alert('Failed to update title: ' + error.message);
+      return;
+    }
+    const save = this.saves.find(s => s.id === saveId);
+    if (save) save.title = newTitle;
+    if (this.currentSave && this.currentSave.id === saveId) this.currentSave.title = newTitle;
+    this.renderSaves();
   }
 
   async addTagToSave() {
