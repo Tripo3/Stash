@@ -2017,3 +2017,41 @@ input, select {
     font-size: 24px;
   }
 }
+
+/* Tag delete button */
+.tag-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 4px;
+  padding: 0 2px;
+  border-radius: 50%;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag-delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Editable reading title */
+#reading-title[contenteditable="true"]:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--primary);
+}
+
+#reading-title[contenteditable="true"]:focus {
+  text-decoration: none;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+}
